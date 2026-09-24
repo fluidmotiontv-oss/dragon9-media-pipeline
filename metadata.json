@@ -1,0 +1,8 @@
+{
+  "name": "Dragon 9 Media Pipeline",
+  "description": "High-fidelity media production control center for fluid motion animation and 432Hz audio rendering.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

@@ -1,0 +1,91 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Default Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helpers ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isEmailVerified() {
+      return request.auth.token.email_verified == true;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && request.auth.token.email == "fluidmotiontv@gmail.com";
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // --- Nodes ---
+    function isValidNode(data) {
+      return data.keys().hasAll(['id', 'status', 'lastSeen']) &&
+             data.keys().hasOnly(['id', 'status', 'lastSeen', 'adbReverseActive', 'storagePermissions']) &&
+             data.id is string && data.id.size() <= 64 &&
+             data.status in ['online', 'offline', 'busy'] &&
+             data.lastSeen is timestamp;
+    }
+
+    match /nodes/{nodeId} {
+      allow read: if isSignedIn();
+      allow create: if isAdmin() && isValidId(nodeId) && isValidNode(incoming());
+      allow update: if (isAdmin() || (isSignedIn() && incoming().id == existing().id)) && 
+                    isValidNode(incoming()) &&
+                    incoming().diff(existing()).affectedKeys().hasOnly(['status', 'lastSeen', 'adbReverseActive', 'storagePermissions']);
+      allow delete: if isAdmin();
+    }
+
+    // --- Jobs ---
+    function isValidJob(data) {
+      return data.keys().hasAll(['projectName', 'status', 'progress', 'createdAt', 'updatedAt']) &&
+             data.keys().hasOnly(['projectName', 'status', 'progress', 'renderPath', 'createdAt', 'updatedAt']) &&
+             data.projectName is string && data.projectName.size() <= 100 &&
+             data.status in ['pending', 'rendering', 'paused', 'cancelled', 'completed', 'failed'] &&
+             data.progress is number && data.progress >= 0 && data.progress <= 100 &&
+             data.createdAt is timestamp &&
+             data.updatedAt is timestamp;
+    }
+
+    match /jobs/{jobId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && isValidId(jobId) && isValidJob(incoming()) && incoming().createdAt == request.time;
+      allow update: if isSignedIn() && isValidJob(incoming()) && 
+                    incoming().updatedAt == request.time &&
+                    (
+                      // Allow changing progress and status during active states
+                      (existing().status in ['rendering', 'paused'] && incoming().diff(existing()).affectedKeys().hasOnly(['progress', 'status', 'updatedAt'])) ||
+                      isAdmin()
+                    );
+      allow delete: if isAdmin();
+    }
+
+    // --- Telemetry ---
+    function isValidTelemetry(data) {
+      return data.keys().hasAll(['nodeId', 'cpuUsage', 'timestamp']) &&
+             data.keys().hasOnly(['nodeId', 'cpuUsage', 'memUsage', 'ffmpegStatus', 'timestamp']) &&
+             data.nodeId is string &&
+             data.cpuUsage is number &&
+             data.timestamp is timestamp;
+    }
+
+    match /telemetry/{telemetryId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && isValidTelemetry(incoming()) && incoming().timestamp == request.time;
+      allow delete: if isAdmin();
+    }
+  }
+}

@@ -1,0 +1,59 @@
+{
+  "entities": {
+    "node": {
+      "title": "Pipeline Node",
+      "description": "Represents a local execution node (e.g., Termux device).",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Device ID (e.g. 9COMB-DRAGON9-PHONE-01)" },
+        "status": { "type": "string", "enum": ["online", "offline", "busy"], "description": "Current status of the node" },
+        "lastSeen": { "type": "string", "format": "date-time", "description": "Last heartbeat timestamp" },
+        "adbReverseActive": { "type": "boolean", "description": "Whether ADB reverse tunnel is active" },
+        "storagePermissions": { "type": "boolean", "description": "Termux storage permission status" }
+      },
+      "required": ["id", "status", "lastSeen"]
+    },
+    "job": {
+      "title": "Render Job",
+      "description": "A media rendering task in the pipeline.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "projectName": { "type": "string", "description": "Name of the pilot project" },
+        "status": { "type": "string", "enum": ["pending", "rendering", "paused", "cancelled", "completed", "failed"] },
+        "progress": { "type": "number", "minimum": 0, "maximum": 100 },
+        "renderPath": { "type": "string", "description": "Path in ~/storage/shared/FluidmotionTV/renders" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["projectName", "status", "progress", "createdAt", "updatedAt"]
+    },
+    "telemetry": {
+      "title": "System Telemetry",
+      "description": "Real-time performance metrics from the orchestrator.",
+      "type": "object",
+      "properties": {
+        "nodeId": { "type": "string" },
+        "cpuUsage": { "type": "number" },
+        "memUsage": { "type": "number" },
+        "ffmpegStatus": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["nodeId", "cpuUsage", "timestamp"]
+    }
+  },
+  "firestore": {
+    "/nodes/{nodeId}": {
+      "schema": "node",
+      "description": "Registry of active pipeline nodes."
+    },
+    "/jobs/{jobId}": {
+      "schema": "job",
+      "description": "Queue of rendering tasks."
+    },
+    "/telemetry/{telemetryId}": {
+      "schema": "telemetry",
+      "description": "Stream of performance data."
+    }
+  }
+}
